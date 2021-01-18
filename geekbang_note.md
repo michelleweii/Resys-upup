@@ -153,7 +153,8 @@ One-hot 编码也可以自然衍生成 **Multi-hot 编码（多热编码）**。
 
 
 
-- 离散特征：比如西瓜的色泽有 [青绿、乌黑、浅白] 三种颜色；或许有时候也称为属性类
+- 离散特征：比如西瓜的色泽有 [青绿、乌黑、浅白] 三种颜色；或许有时候也称为属性类;
+- 标签类特征：也是离散的类别特征；
 - 连续特征：比如西瓜的含糖率有 0.460、0.376、0.263、0.821、0.102 ... 等等等；
 - 数值型特征：特征以数字形式表示？
 - ID类特征：也是离散特征，电商领域为例，存在大量ID类特征，比如user ID, item ID, product ID, store ID, brand ID和category ID等。
@@ -166,14 +167,107 @@ spark分桶的特征处理 QuantileDiscretizer
 
 
 
+### 06 word2vec ###
+
+Embedding 就是用一个数值向量“表示”一个对象（Object）的方法。对序列数据进行了 Embedding 化。
+
+大量使用 One-hot 编码会导致样本特征向量极度稀疏，而深度学习的结构特点又不利于稀疏特征向量的处理，<u>*因此几乎所有深度学习推荐模型都会由 Embedding 层负责将稀疏高维特征向量转换成稠密低维特征向量。*</u>
+
+![img](https://static001.geekbang.org/resource/image/99/39/9997c61588223af2e8c0b9b2b8e77139.jpeg)
+
+它的输入层和输出层的维度都是 V，这个 V 其实就是语料库词典的大小。假设语料库一共使用了 10000 个词，那么 V 就等于 10000。根据生成的训练样本，这里的输入向量自然就是由输入词转换而来的 One-hot 编码向量，**输出向量则是由多个输出词转换而来的 Multi-hot 编码向量**，显然，基于 Skip-gram 框架的 Word2vec 模型解决的是一个多分类问题。
+
+最后是激活函数的问题，这里我们需要注意的是，隐层神经元是没有激活函数的，或者说采用了输入即输出的恒等函数作为激活函数，而输出层神经元采用了 **<u>*softmax 作为激活函数*</u>**。
+
+为什么要这样设置 Word2vec 的神经网络，以及我们为什么要这样选择激活函数呢？因为这个神经网络其实是为了表达从输入向量到输出向量的这样的一个条件概率关系，我们看下面的式子：
+
+![image-20210118233633279](/Users/michelle/Library/Application Support/typora-user-images/image-20210118233633279.png)
+
+这个由输入词 WI 预测输出词 WO 的条件概率，其实就是 Word2vec 神经网络要表达的东西。我们通过极大似然的方法去最大化这个条件概率，就能够让相似的词的内积距离更接近，这就是我们希望 Word2vec 神经网络学到的。
+
+> 多分类问题：
+
+
+
+怎样把词向量从 Word2vec 模型中提取出来？
+
+Embedding 藏在输入层到隐层的权重矩阵 W VxN 中。在训练完成后，模型输入向量矩阵的行向量，就是我们要提取的词向量。
+
+![img](https://static001.geekbang.org/resource/image/0d/72/0de188f4b564de8076cf13ba6ff87872.jpeg)
+
+在实际的使用过程中，我们往往会**把输入向量矩阵转换成词向量查找表（Lookup table）**。例如，输入向量是 10000 个词组成的 One-hot 向量，隐层维度是 300 维，那么输入层到隐层的权重矩阵为 10000x300 维。在转换为词向量 Lookup table 后，每行的权重即成了对应词的 Embedding 向量。如果我们把这个查找表存储到线上的数据库中，就可以轻松地在推荐物品的过程中使用 Embedding 去计算相似性等重要的特征了。
+
+![img](https://static001.geekbang.org/resource/image/1e/96/1e6b464b25210c76a665fd4c34800c96.jpeg)
+
+​                                                                      Word2vec的Lookup table
+
+
+
+#### item2vec
+
+既然 Word2vec 可以对词“序列”中的词进行 Embedding，那么对于用户购买“序列”中的一个商品，用户观看“序列”中的一个电影，也应该存在相应的 Embedding 方法。
+
+![img](https://static001.geekbang.org/resource/image/d8/07/d8e3cd26a9ded7e79776dd31cc8f4807.jpeg)
+
+图8 不同场景下的序列数据
+
+
+
+### 07 利用图结构数据生成Graph Embedding？
+
+![img](https://static001.geekbang.org/resource/image/54/91/5423f8d0f5c1b2ba583f5a2b2d0aed91.jpeg)
+
+（1）从社交网络中，我们可以发现意见领袖，可以发现社区，再根据这些“社交”特性进行社交化的推荐，如果我们可以对社交网络中的节点进行 Embedding 编码，社交化推荐的过程将会非常方便。
+
+（2）知识图谱中包含了不同类型的知识主体（如人物、地点等），附着在知识主体上的属性（如人物描述，物品特点），以及主体和主体之间、主体和属性之间的关系。如果我们能够对知识图谱中的主体进行 Embedding 化，就可以发现主体之间的潜在关系，这对于基于内容和知识的推荐系统是非常有帮助的。
+
+（3）行为关系类图数据。这类数据几乎存在于所有互联网应用中，它事实上是由用户和物品组成的“二部图”（也称二分图，如图 1c）。用户和物品之间的相互行为生成了行为关系图。借助这样的关系图，我们自然能够利用 Embedding 技术发掘出物品和物品之间、用户和用户之间，以及用户和物品之间的关系，从而应用于推荐系统的进一步推荐。
+
+
+
+#### 基于随机游走的 Graph Embedding 方法：Deep Walk
+
+> 它的主要思想是在由物品组成的图结构上进行随机游走，产生大量物品序列，然后将这些物品序列作为训练样本输入 Word2vec 进行训练，最终得到物品的 Embedding。因此，DeepWalk 可以被看作连接序列 Embedding 和 Graph Embedding 的一种过渡方法。
+
+![img](https://static001.geekbang.org/resource/image/1f/ed/1f28172c62e1b5991644cf62453fd0ed.jpeg)
+
+
+
+Embedding 是如何应用在推荐系统的特征工程中的？
+
+（1）“直接应用”最简单，就是在我们得到 Embedding 向量之后，直接利用 Embedding 向量的相似性实现某些推荐系统的功能。典型的功能有，利用物品 Embedding 间的相似性实现相似物品推荐，利用物品 Embedding 和用户 Embedding 的相似性实现“猜你喜欢”等经典推荐功能，还可以利用物品 Embedding 实现推荐系统中的召回层等。
+
+（2）“预训练应用”指的是在我们预先训练好物品和用户的 Embedding 之后，不直接应用，而是把这些 Embedding 向量作为特征向量的一部分，跟其余的特征向量拼接起来，作为推荐模型的输入参与训练。这样做能够更好地把其他特征引入进来，让推荐模型作出更为全面且准确的预测。
+
+（3）“End2End 应用”，也就是端到端训练，就是指我们不预先训练 Embedding，而是把 Embedding 的训练与深度学习推荐模型结合起来，采用统一的、端到端的方式一起训练，直接得到包含 Embedding 层的推荐模型。这种方式非常流行，比如图 6 就展示了三个包含 Embedding 层的经典模型，分别是微软的 Deep Crossing，UCL 提出的 FNN 和 Google 的 Wide&Deep。
+
+![img](https://static001.geekbang.org/resource/image/e9/78/e9538b0b5fcea14a0f4bbe2001919978.jpg)
+
+图6 带有Embedding层的深度学习模型
+
+
+
+#### 基于随机游走的 Graph Embedding 方法：Deep Walk
+
+
+
+#### 在同质性和结构性间权衡的方法，Node2vec
+
+
+
+总结
+
+- Deep Walk ：首先，我们基于原始的用户行为序列来构建物品关系图，然后采用随机游走的方式随机选择起始点，重新产生物品序列，最后将这些随机游走生成的物品序列输入 Word2vec 模型，生成最终的物品 Embedding 向量。
+
+- Node2vec 相比于 Deep Walk，增加了随机游走过程中跳转概率的倾向性。如果倾向于宽度优先搜索，则 Embedding 结果更加体现“结构性”。如果倾向于深度优先搜索，则更加体现“同质性”。
+
+![img](https://static001.geekbang.org/resource/image/d0/e6/d03ce492866f9fb85b4fbf5fa39346e6.jpeg)
 
 
 
 
-### 06 ###
 
-Embedding 就是用一个数值向量“表示”一个对象（Object）的方法。
-
+### 08 如何使用Spark生成Item2vec和Graph Embedding？
 
 
 
@@ -181,10 +275,5 @@ Embedding 就是用一个数值向量“表示”一个对象（Object）的方�
 
 
 
-
-
-
-
-
-
+### 28 YoutubeDNN
 
