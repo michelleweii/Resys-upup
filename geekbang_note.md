@@ -1,5 +1,7 @@
 https://time.geekbang.org/column/article/295939
 
+## 特征工程
+
 ### 04 ###
 
 特征是对某个行为过程相关信息的抽象表达：因为一个行为过程必须转换成某种数学形式才能被机器学习模型所学习。
@@ -231,19 +233,24 @@ Embedding 藏在输入层到隐层的权重矩阵 W VxN 中。在训练完成后
 
 ![img](https://static001.geekbang.org/resource/image/1f/ed/1f28172c62e1b5991644cf62453fd0ed.jpeg)
 
+> 我们基于原始的用户行为序列（图 2a），比如用户的购买物品序列、观看视频序列等等，来构建物品关系图（图 2b）。从中，我们可以看出，因为用户 Ui先后购买了物品 A 和物品 B，所以产生了一条由 A 到 B 的有向边。如**果后续产生了多条相同的有向边，则有向边的权重被加强**。在将所有用户行为序列都转换成物品相关图中的边之后，全局的物品相关图就建立起来了。
+>
+> 采用随机游走的方式随机选择起始点，重新产生物品序列（图 2c）。其中，**随机游走采样的次数、长度等都属于超参数**，需要我们根据具体应用进行调整。
+>
+> 将这些随机游走生成的物品序列输入图 2d 的 Word2vec 模型，生成最终的物品 Embedding 向量。
 
 
 
+DeepWalk 的算法流程中，唯一需要**形式化定义的就是随机游走的跳转概率**，也就是到达节点 vi后，下一步遍历 vi 的邻接点 vj 的概率。如果物品关系图是有向有权图，那么**从节点 vi 跳转到节点 vj** 的概率定义如下：
+
+![image-20210119214748225](/Users/michelle/Library/Application Support/typora-user-images/image-20210119214748225.png)
 
 
 
+其中，N+(vi) 是节点 vi所有的出边集合，Mij是节点 vi到节点 vj边的权重，即 DeepWalk 的跳转概率就是跳转边的权重占所有相关出边权重之和的比例。<u>如果物品相关图是无向无权重图，那么跳转概率将是上面这个公式的一个特例，即权重 Mij将为常数 1，且 N+(vi) 应是节点 vi所有“边”的集合，而不是所有“出边”的集合。(咦？那不是所有的边跳转概率都一样？)</u>
 
-
-物品关系图是有向有权图：节点 vi 跳转到节点 vj 的概率定义：i到j的权重比上i出边的权重之和。
-
-无向无权重图：1/i的所有边的和。
-
-
+- 物品关系图是有向有权图：节点 vi 跳转到节点 vj 的概率定义：i到j的权重比上**i出边**的权重之和。
+- 无向无权重图：1/i的所有边的和。
 
 
 
@@ -251,13 +258,15 @@ Embedding 藏在输入层到隐层的权重矩阵 W VxN 中。在训练完成后
 
 Node2vec 通过调整随机游走跳转概率的方法，让 Graph Embedding 的结果在网络的同质性（Homophily）和结构性（Structural Equivalence）中进行权衡，可以进一步把不同的 Embedding 输入推荐模型。
 
-> **“同质性”**指的是距离相近节点的 Embedding 应该尽量近似，如图 3 所示，节点 u 与其相连的节点 s1、s2、s3、s4的 Embedding 表达应该是接近的，这就是网络“同质性”的体现。在电商网站中，同质性的物品很可能是同品类、同属性，或者经常被一同购买的物品。
+结构性和同质性是什么？Graph Embedding 的结果究竟是怎么表达结构性和同质性的呢？
+
+> <u>**“同质性”**指的是距离相近节点的 Embedding 应该尽量近似</u>，如图 3 所示，节点 u 与其相连的节点 s1、s2、s3、s4的 Embedding 表达应该是接近的，这就是网络“同质性”的体现。在电商网站中，同质性的物品很可能是同品类、同属性，或者经常被一同购买的物品。
 >
 > 为了表达“同质性”，随机游走要更倾向于 **DFS（Depth First Search，深度优先搜索）**才行，因为 DFS 更有可能通过多次跳转，游走到远方的节点上。但无论怎样，DFS 的游走更大概率会在一个大的集团内部进行，这就使得一个集团或者社区内部节点的 Embedding 更为相似，从而更多地表达网络的“同质性”。
 
 
 
-> **“结构性”**指的是结构上相似的节点的 Embedding 应该尽量接近，比如图 3 中节点 u 和节点 s6都是各自局域网络的中心节点，它们在结构上相似，所以它们的 Embedding 表达也应该近似，这就是“结构性”的体现。在电商网站中，结构性相似的物品一般是各品类的爆款、最佳凑单商品等拥有类似趋势或者结构性属性的物品。
+> <u>**“结构性”**指的是结构上相似的节点的 Embedding 应该尽量接近</u>，比如图 3 中节点 u 和节点 s6都是各自局域网络的中心节点，它们在结构上相似，所以它们的 Embedding 表达也应该近似，这就是“结构性”的体现。在电商网站中，结构性相似的物品一般是各品类的爆款、最佳凑单商品等拥有类似趋势或者结构性属性的物品。
 >
 > 为了使 Graph Embedding 的结果能够表达网络的“结构性”，在随机游走的过程中，我们需要让游走的过程更倾向于 **BFS（Breadth First Search，宽度优先搜索）**，因为 BFS 会更多地在当前节点的邻域中进行游走遍历，相当于对当前节点周边的网络结构进行一次“微观扫描”。当前节点是“局部中心节点”，还是“边缘节点”，亦或是“连接性节点”，其生成的序列包含的节点数量和顺序必然是不同的，从而让最终的 Embedding 抓取到更多结构性信息。
 
@@ -269,13 +278,27 @@ Node2vec 通过调整随机游走跳转概率的方法，让 Graph Embedding 的
 
 在 Node2vec 算法中，究竟是怎样控制 BFS 和 DFS 的倾向性的呢？
 
-主要是通过节点间的跳转概率来控制跳转的倾向性。图 4 所示为 Node2vec 算法从节点 t 跳转到节点 v 后，再从节点 v 跳转到周围各点的跳转概率。这里，你要注意这几个节点的特点。比如，节点 t 是随机游走上一步访问的节点，节点 v 是当前访问的节点，节点 x1、x2、x3是与 v 相连的非 t 节点，但节点 x1还与节点 t 相连，这些不同的特点决定了随机游走时下一次跳转的概率。![img](https://static001.geekbang.org/resource/image/6y/59/6yyec0329b62cde0a645eea8dc3a8059.jpeg)                 
+主要是通过节点间的跳转概率来控制跳转的倾向性。图 4 所示为 **Node2vec 算法从节点 t 跳转到节点 v 后，再从节点 v 跳转到周围各点的跳转概率**。这里，你要注意这几个节点的特点。比如，节点 t 是随机游走上一步访问的节点，节点 v 是当前访问的节点，节点 x1、x2、x3是与 v 相连的非 t 节点，但节点 x1还与节点 t 相连，这些不同的特点决定了随机游走时下一次跳转的概率。![img](https://static001.geekbang.org/resource/image/6y/59/6yyec0329b62cde0a645eea8dc3a8059.jpeg)                 
 
 ​                                                                                         图4 Node2vec的跳转概率
 
+从当前节点 v 跳转到下一个节点 x 的概率![image-20210119215702542](/Users/michelle/Library/Application Support/typora-user-images/image-20210119215702542.png)，其中 wvx 是边 vx 的原始权重，αpq(t,x) 是 Node2vec 定义的一个跳转权重。**跳转权重决定是倾向于 DFS 还是 BFS**。
 
+![image-20210119215903301](/Users/michelle/Library/Application Support/typora-user-images/image-20210119215903301.png)
 
+![image-20210119215924725](/Users/michelle/Library/Application Support/typora-user-images/image-20210119215924725.png)里的 dtx是指节点 t 到节点 x 的距离，比如节点 x1其实是与节点 t 直接相连的，所以这个距离 dtx就是 1，节点 t 到节点 t 自己的距离 dtt就是 0，而 x2、x3这些不与 t 相连的节点，dtx就是 2。此外，αpq(t,x) 中的参数 p 和 q 共同控制着随机游走的倾向性。**参数 p 被称为返回参数（Return Parameter），p 越小，随机游走回节点 t 的可能性越大，Node2vec 就更注重表达网络的结构性。**  **参数 q 被称为进出参数（In-out Parameter），q 越小，随机游走到远方节点的可能性越大，Node2vec 更注重表达网络的同质性。**反之，当前节点更可能在附近节点游走。你可以自己尝试给 p 和 q 设置不同大小的值，算一算从 v 跳转到 t、x1、x2和 x3的跳转概率。这样一来，应该就不难理解我刚才所说的随机游走倾向性的问题。
 
+| x_1  | dtx=1 | αpq(t,x) = 1   |
+| ---- | ----- | -------------- |
+| x_2  | dtx=2 | αpq(t,x) = 1/q |
+| x_32 | dtx=1 | αpq(t,x) = 1/q |
+| t    | dtt=0 | αpq(t,t) = 1/p |
+
+Node2vec 这种灵活表达同质性和结构性的特点也得到了实验的证实，我们可以通过调整 p 和 q 参数让它产生不同的 Embedding 结果。图 5 上就是 Node2vec 更注重同质性的体现，从中我们可以看到，距离相近的节点颜色更为接近，图 5 下则是更注重结构性的体现，其中结构特点相近的节点的颜色更为接近。
+
+![img](https://static001.geekbang.org/resource/image/d2/3a/d2d5a6b6f31aeee3219b5f509a88903a.jpeg)
+
+Node2vec 所体现的网络的同质性和结构性，在推荐系统中都是非常重要的特征表达。**由于 Node2vec 的这种灵活性，以及发掘不同图特征的能力，我们甚至可以把不同 Node2vec 生成的偏向“结构性”的 Embedding 结果，以及偏向“同质性”的 Embedding 结果共同输入后续深度学习网络，以保留物品的不同图特征信息。**
 
 
 
@@ -303,11 +326,242 @@ Node2vec 通过调整随机游走跳转概率的方法，让 Graph Embedding 的
 
 ### 08 如何使用Spark生成Item2vec和Graph Embedding？
 
+Item2vec 是基于自然语言处理模型 Word2vec 提出的，所以 Item2vec 要处理的是类似文本句子、观影序列之类的序列数据。那在真正开始 Item2vec 的训练之前，还要先为它准备好训练用的序列数据。
+
+在 MovieLens 数据集中，有一张叫 rating（评分）的数据表，里面包含了用户对看过电影的评分和评分的时间。
+
+数据处理：只放用户打分比较高的电影（因为item2vec 模型本质上是要学习到物品之间的近似性。既然这样，我们当然是希望评分好的电影靠近一些，评分差的电影和评分好的电影不要在序列中结对出现。）
+
+先过滤掉他评分低的电影，再把他评论过的电影按照时间戳排序。这样，我们就得到了一个用户的观影序列，所有用户的观影序列就组成了 Item2vec 的训练样本集。
+
+1. 读取 ratings 原始数据到 Spark 平台；
+2. 用 where 语句过滤评分低的评分记录；
+3. 用 groupBy userId 操作聚合每个用户的评分记录，DataFrame 中每条记录是一个用户的评分序列；
+4. 定义一个自定义操作 sortUdf，用它实现每个用户的评分记录按照时间戳进行排序；
+5. 把每个用户的评分记录处理成一个字符串的形式，供后续训练过程使用。
+
+```scala
+def processItemSequence(sparkSession: SparkSession): RDD[Seq[String]] ={
+  //设定rating数据的路径并用spark载入数据
+  val ratingsResourcesPath = this.getClass.getResource("/webroot/sampledata/ratings.csv")
+  val ratingSamples = sparkSession.read.format("csv").option("header", "true").load(ratingsResourcesPath.getPath)
+
+
+  //实现一个用户定义的操作函数(UDF)，用于之后的排序
+  val sortUdf: UserDefinedFunction = udf((rows: Seq[Row]) => {
+    rows.map { case Row(movieId: String, timestamp: String) => (movieId, timestamp) }
+      .sortBy { case (movieId, timestamp) => timestamp }
+      .map { case (movieId, timestamp) => movieId }
+  })
+
+
+  //把原始的rating数据处理成序列数据
+  val userSeq = ratingSamples
+    .where(col("rating") >= 3.5)  //过滤掉评分在3.5一下的评分记录
+    .groupBy("userId")            //按照用户id分组
+    .agg(sortUdf(collect_list(struct("movieId", "timestamp"))) as "movieIds")     //每个用户生成一个序列并用刚才定义好的udf函数按照timestamp排序
+    .withColumn("movieIdStr", array_join(col("movieIds"), " "))
+                //把所有id连接成一个String，方便后续word2vec模型处理
+
+
+  //把序列数据筛选出来，丢掉其他过程数据
+  userSeq.select("movieIdStr").rdd.map(r => r.getAs[String]("movieIdStr").split(" ").toSeq)
+```
+
+ID 为 11888 用户的观影序列：296 380 344 588 593 231 595 318 480 110 253 288 47 364 377 589 410 597 539 39 160 266 350 553 337 186 736 44 158 551 293 780 353 368 858
+
+Item2vec：模型训练
+
+```scala
+
+def trainItem2vec(samples : RDD[Seq[String]]): Unit ={
+    //设置模型参数
+    val word2vec = new Word2Vec()
+    .setVectorSize(10) // 用于设定生成的 Embedding 向量的维度
+    .setWindowSize(5)  // 用于设定在序列数据上采样的滑动窗口大小
+    .setNumIterations(10)  // 用于设定训练时的迭代次数
+
+
+  //训练模型
+  val model = word2vec.fit(samples)
+
+
+  //训练结束，用模型查找与item"592"最相似的20个item
+  val synonyms = model.findSynonyms("592", 20)
+  for((synonym, cosineSimilarity) <- synonyms) {
+    println(s"$synonym $cosineSimilarity")
+  }
+ 
+  //保存模型
+  val embFolderPath = this.getClass.getResource("/webroot/sampledata/")
+  val file = new File(embFolderPath.getPath + "embedding.txt")
+  val bw = new BufferedWriter(new FileWriter(file))
+  var id = 0
+  //用model.getVectors获取所有Embedding向量
+  for (movieId <- model.getVectors.keys){
+    id+=1
+    // 调用 getVectors 接口就可以提取出某个电影 ID 对应的 Embedding 向量
+    bw.write( movieId + ":" + model.getVectors(movieId).mkString(" ") + "\n")
+  }
+  bw.close()
+```
 
 
 
 
 
+Graph embedding
 
-### 28 YoutubeDNN
+数据准备：最关键数据是物品之间的转移概率矩阵。转移概率矩阵表达了下图中的物品关系图，它定义了随机游走过程中，从物品 A 到物品 B 的跳转概率。
 
+![image-20210119230143875](/Users/michelle/Library/Application Support/typora-user-images/image-20210119230143875.png)
+
+> 生成转移概率矩阵的函数输入是在训练 Item2vec 时处理好的观影序列数据。
+>
+> 输出的是转移概率矩阵。
+>
+> 由于转移概率矩阵比较稀疏，没有采用比较浪费内存的二维数组的方法，而是采用了一个双层 Map 的结构去实现它。比如说，**要得到物品 A 到物品 B 的转移概率，那么 transferMatrix(itemA)(itemB) 就是这一转移概率。**
+
+```scala
+// Spark 生成转移概率矩阵
+
+//samples 输入的观影序列样本集
+def graphEmb(samples : RDD[Seq[String]], sparkSession: SparkSession): Unit ={
+  //通过flatMap操作把观影序列打碎成一个个影片对
+  val pairSamples = samples.flatMap[String]( sample => {
+    var pairSeq = Seq[String]()
+    var previousItem:String = null
+    sample.foreach((element:String) => {
+      if(previousItem != null){
+        pairSeq = pairSeq :+ (previousItem + ":" + element)
+      }
+      previousItem = element
+    })
+    pairSeq
+  })
+  //统计影片对的数量(再利用 countByValue 操作统计这些影片对的数量)
+  val pairCount = pairSamples.countByValue()
+  //转移概率矩阵的双层Map数据结构
+  val transferMatrix = scala.collection.mutable.Map[String, scala.collection.mutable.Map[String, Long]]()
+  val itemCount = scala.collection.mutable.Map[String, Long]()
+
+// ***
+  // 根据这些影片对的数量求取每两个影片之间的转移概率
+  *** //
+  
+  //求取转移概率矩阵
+  pairCount.foreach( pair => {
+    val pairItems = pair._1.split(":")
+    val count = pair._2
+    lognumber = lognumber + 1
+    println(lognumber, pair._1)
+
+
+    if (pairItems.length == 2){
+      val item1 = pairItems.apply(0)
+      val item2 = pairItems.apply(1)
+      if(!transferMatrix.contains(pairItems.apply(0))){
+        transferMatrix(item1) = scala.collection.mutable.Map[String, Long]()
+      }
+
+
+      transferMatrix(item1)(item2) = count
+      itemCount(item1) = itemCount.getOrElse[Long](item1, 0) + count
+    }
+  
+
+```
+
+Graph Embedding：随机游走采样过程
+
+> **随机游走采样的过程是利用转移概率矩阵生成新的序列样本的过程。**这怎么理解呢？首先，我们要根据物品出现次数的分布随机选择一个起始物品，之后就进入随机游走的过程。在每次游走时，我们根据转移概率矩阵查找到两个物品之间的转移概率，然后根据这个概率进行跳转。比如当前的物品是 A，从转移概率矩阵中查找到 A 可能跳转到物品 B 或物品 C，转移概率分别是 0.4 和 0.6，那么我们就按照这个概率来随机游走到 B 或 C，依次进行下去，直到样本的长度达到了我们的要求。
+
+```scala
+
+//随机游走采样函数
+//transferMatrix 转移概率矩阵
+//itemCount 物品出现次数的分布
+def randomWalk(transferMatrix : scala.collection.mutable.Map[String, scala.collection.mutable.Map[String, Long]], itemCount : scala.collection.mutable.Map[String, Long]): Seq[Seq[String]] ={
+  //样本的数量
+  val sampleCount = 20000
+  //每个样本的长度
+  val sampleLength = 10
+  val samples = scala.collection.mutable.ListBuffer[Seq[String]]()
+  
+  //物品出现的总次数
+  var itemTotalCount:Long = 0
+  for ((k,v) <- itemCount) itemTotalCount += v
+
+
+  //随机游走sampleCount次，生成sampleCount个序列样本
+  for( w <- 1 to sampleCount) {
+    samples.append(oneRandomWalk(transferMatrix, itemCount, itemTotalCount, sampleLength))
+  }
+
+
+  Seq(samples.toList : _*)
+}
+
+
+//通过随机游走产生一个样本的过程
+//transferMatrix 转移概率矩阵
+//itemCount 物品出现次数的分布
+//itemTotalCount 物品出现总次数
+//sampleLength 每个样本的长度
+def oneRandomWalk(transferMatrix : scala.collection.mutable.Map[String, scala.collection.mutable.Map[String, Long]], itemCount : scala.collection.mutable.Map[String, Long], itemTotalCount:Long, sampleLength:Int): Seq[String] ={
+  val sample = scala.collection.mutable.ListBuffer[String]()
+
+
+  //决定起始点
+  val randomDouble = Random.nextDouble()
+  var firstElement = ""
+  var culCount:Long = 0
+  //根据物品出现的概率，随机决定起始点
+  breakable { for ((item, count) <- itemCount) {
+    culCount += count
+    if (culCount >= randomDouble * itemTotalCount){
+      firstElement = item
+      break
+    }
+  }}
+
+
+  sample.append(firstElement)
+  var curElement = firstElement
+  //通过随机游走产生长度为sampleLength的样本
+  breakable { for( w <- 1 until sampleLength) {
+    if (!itemCount.contains(curElement) || !transferMatrix.contains(curElement)){
+      break
+    }
+    //从curElement到下一个跳的转移概率向量
+    val probDistribution = transferMatrix(curElement)
+    val curCount = itemCount(curElement)
+    val randomDouble = Random.nextDouble()
+    var culCount:Long = 0
+    //根据转移概率向量随机决定下一跳的物品
+    breakable { for ((item, count) <- probDistribution) {
+      culCount += count
+      if (culCount >= randomDouble * curCount){
+        curElement = item
+        break
+      }
+    }}
+    sample.append(curElement)
+  }}
+  Seq(sample.toList : _
+
+```
+
+通过随机游走产生了我们训练所需的 sampleCount 个样本之后，下面的过程就和 Item2vec 的过程完全一致了，就是把这些训练样本输入到 Word2vec 模型中，完成最终 Graph Embedding 的生成。
+
+总结
+
+![img](https://static001.geekbang.org/resource/image/02/a7/02860ed1170d9376a65737df1294faa7.jpeg)
+
+
+
+
+
+未完。。。
+
+scala代码这里没有很好理解。
