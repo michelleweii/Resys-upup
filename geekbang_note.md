@@ -233,27 +233,63 @@ Embedding 藏在输入层到隐层的权重矩阵 W VxN 中。在训练完成后
 
 
 
-Embedding 是如何应用在推荐系统的特征工程中的？
-
-（1）“直接应用”最简单，就是在我们得到 Embedding 向量之后，直接利用 Embedding 向量的相似性实现某些推荐系统的功能。典型的功能有，利用物品 Embedding 间的相似性实现相似物品推荐，利用物品 Embedding 和用户 Embedding 的相似性实现“猜你喜欢”等经典推荐功能，还可以利用物品 Embedding 实现推荐系统中的召回层等。
-
-（2）“预训练应用”指的是在我们预先训练好物品和用户的 Embedding 之后，不直接应用，而是把这些 Embedding 向量作为特征向量的一部分，跟其余的特征向量拼接起来，作为推荐模型的输入参与训练。这样做能够更好地把其他特征引入进来，让推荐模型作出更为全面且准确的预测。
-
-（3）“End2End 应用”，也就是端到端训练，就是指我们不预先训练 Embedding，而是把 Embedding 的训练与深度学习推荐模型结合起来，采用统一的、端到端的方式一起训练，直接得到包含 Embedding 层的推荐模型。这种方式非常流行，比如图 6 就展示了三个包含 Embedding 层的经典模型，分别是微软的 Deep Crossing，UCL 提出的 FNN 和 Google 的 Wide&Deep。
-
-![img](https://static001.geekbang.org/resource/image/e9/78/e9538b0b5fcea14a0f4bbe2001919978.jpg)
-
-图6 带有Embedding层的深度学习模型
 
 
 
-#### 基于随机游走的 Graph Embedding 方法：Deep Walk
+
+
+
+物品关系图是有向有权图：节点 vi 跳转到节点 vj 的概率定义：i到j的权重比上i出边的权重之和。
+
+无向无权重图：1/i的所有边的和。
+
+
 
 
 
 #### 在同质性和结构性间权衡的方法，Node2vec
 
+Node2vec 通过调整随机游走跳转概率的方法，让 Graph Embedding 的结果在网络的同质性（Homophily）和结构性（Structural Equivalence）中进行权衡，可以进一步把不同的 Embedding 输入推荐模型。
 
+> **“同质性”**指的是距离相近节点的 Embedding 应该尽量近似，如图 3 所示，节点 u 与其相连的节点 s1、s2、s3、s4的 Embedding 表达应该是接近的，这就是网络“同质性”的体现。在电商网站中，同质性的物品很可能是同品类、同属性，或者经常被一同购买的物品。
+>
+> 为了表达“同质性”，随机游走要更倾向于 **DFS（Depth First Search，深度优先搜索）**才行，因为 DFS 更有可能通过多次跳转，游走到远方的节点上。但无论怎样，DFS 的游走更大概率会在一个大的集团内部进行，这就使得一个集团或者社区内部节点的 Embedding 更为相似，从而更多地表达网络的“同质性”。
+
+
+
+> **“结构性”**指的是结构上相似的节点的 Embedding 应该尽量接近，比如图 3 中节点 u 和节点 s6都是各自局域网络的中心节点，它们在结构上相似，所以它们的 Embedding 表达也应该近似，这就是“结构性”的体现。在电商网站中，结构性相似的物品一般是各品类的爆款、最佳凑单商品等拥有类似趋势或者结构性属性的物品。
+>
+> 为了使 Graph Embedding 的结果能够表达网络的“结构性”，在随机游走的过程中，我们需要让游走的过程更倾向于 **BFS（Breadth First Search，宽度优先搜索）**，因为 BFS 会更多地在当前节点的邻域中进行游走遍历，相当于对当前节点周边的网络结构进行一次“微观扫描”。当前节点是“局部中心节点”，还是“边缘节点”，亦或是“连接性节点”，其生成的序列包含的节点数量和顺序必然是不同的，从而让最终的 Embedding 抓取到更多结构性信息。
+
+![img](https://static001.geekbang.org/resource/image/e2/82/e28b322617c318e1371dca4088ce5a82.jpeg)
+
+​                                                                                       图3 网络的BFS和 DFS示意图
+
+
+
+在 Node2vec 算法中，究竟是怎样控制 BFS 和 DFS 的倾向性的呢？
+
+主要是通过节点间的跳转概率来控制跳转的倾向性。图 4 所示为 Node2vec 算法从节点 t 跳转到节点 v 后，再从节点 v 跳转到周围各点的跳转概率。这里，你要注意这几个节点的特点。比如，节点 t 是随机游走上一步访问的节点，节点 v 是当前访问的节点，节点 x1、x2、x3是与 v 相连的非 t 节点，但节点 x1还与节点 t 相连，这些不同的特点决定了随机游走时下一次跳转的概率。![img](https://static001.geekbang.org/resource/image/6y/59/6yyec0329b62cde0a645eea8dc3a8059.jpeg)                 
+
+​                                                                                         图4 Node2vec的跳转概率
+
+
+
+
+
+
+
+#### Embedding 是如何应用在推荐系统的特征工程中的？
+
+（1）**“直接应用”**最简单，就是在我们得到 Embedding 向量之后，直接利用 Embedding 向量的相似性实现某些推荐系统的功能。典型的功能有，利用物品 Embedding 间的相似性实现相似物品推荐，利用 *物品 Embedding 和用户 Embedding 的相似性实现 “猜你喜欢 ”* 等经典推荐功能，还可以利用物品 Embedding 实现推荐系统中的召回层等。
+
+（2）**“预训练应用”**指的是在我们预先训练好物品和用户的 Embedding 之后，不直接应用，而是把这些 Embedding 向量作为特征向量的一部分，跟其余的特征向量拼接起来，作为推荐模型的输入参与训练。这样做能够更好地把其他特征引入进来，让推荐模型作出更为全面且准确的预测。
+
+（3）**“End2End 应用”**，也就是端到端训练，就是指我们不预先训练 Embedding，而是把 Embedding 的训练与深度学习推荐模型结合起来，采用统一的、端到端的方式一起训练，直接得到包含 Embedding 层的推荐模型。这种方式非常流行，比如图 6 就展示了三个包含  Embedding 层的经典模型，分别是微软的 Deep Crossing，UCL 提 出的 FNN 和 Google 的 Wide&Deep。
+
+![img](https://static001.geekbang.org/resource/image/e9/78/e9538b0b5fcea14a0f4bbe2001919978.jpg)
+
+​                                                                 图6 带有Embedding层的深度学习模型
 
 总结
 
@@ -262,8 +298,6 @@ Embedding 是如何应用在推荐系统的特征工程中的？
 - Node2vec 相比于 Deep Walk，增加了随机游走过程中跳转概率的倾向性。如果倾向于宽度优先搜索，则 Embedding 结果更加体现“结构性”。如果倾向于深度优先搜索，则更加体现“同质性”。
 
 ![img](https://static001.geekbang.org/resource/image/d0/e6/d03ce492866f9fb85b4fbf5fa39346e6.jpeg)
-
-
 
 
 
