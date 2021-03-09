@@ -129,7 +129,80 @@ Spark Executor 是集群中工作节点（Worker）中的一个 JVM 进程，负
 
 
 
+### 4.2.4 application master
+
+diver直接向mater申请资源耦合太高，通过applicationmaster，再由applicationmaster向master申请资源。
 
 
-p19
 
+
+
+## 4.3 核心概念
+
+### 4.3.1 executor 与core
+
+executor计算节点，执行task；
+
+### 4.3.2 并行度（ Parallelism）
+
+在分布式计算框架中一般都是多个任务同时执行，由于任务分布在不同的计算节点进行
+计算，所以能够真正地实现多任务并行执行，记住，这里是并行，而不是并发。这里我们将
+整个集群并行执行任务的数量称之为并行度。那么一个作业到底并行度是多少呢？这个取决
+于框架的默认配置。应用程序也可以在运行过程中动态修改。
+
+并发
+
+![image-20210309202544311](/Users/michelle/Library/Application Support/typora-user-images/image-20210309202544311.png)
+
+黄色的是真正cpu核，单核；
+
+橙色的是3个虚拟的核，去强占1个真正核的操作。
+
+
+
+并行计算
+
+![image-20210309202502612](/Users/michelle/Library/Application Support/typora-user-images/image-20210309202502612.png)
+
+由真正的3个核，每个core去强占一个核，并行计算。
+
+
+
+## 4.4 提交流程
+
+计算的准备+资源的申请
+
+基于 Yarn 环境的：
+
+Spark 应用程序提交到 Yarn 环境中执行的时候，一般会有两种部署执行的方式： Client
+和 Cluster。 两种模式主要区别在于： **Driver 程序的运行节点位置。（集群里运行or集群外运行）**
+
+![image-20210309203217085](/Users/michelle/Library/Application Support/typora-user-images/image-20210309203217085.png)
+
+
+
+
+
+# 5、spark核心编程
+
+Spark三大数据结构分别是：
+
+➢ RDD : 弹性分布式数据集
+➢ 累加器：分布式共享只写变量
+➢ 广播变量：分布式共享只读变量
+
+
+
+java.io.NotserualizableException
+
+网络中传递的数据没有序列化，网络不能传输对象，所以需要对象系列化。 Class Tasks **extends Serializable**.
+
+
+
+
+
+RDD
+
+将数据和计算逻辑拆分成task，然后发送给不同的executor执行。
+
+每个RDD都是一个计算单元，将多个RDD关联在一起，就会形成一个复杂的逻辑，复杂的逻辑随着task传给executor，完成需求。
